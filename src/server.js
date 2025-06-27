@@ -5,9 +5,12 @@ import mongoDB from './config/db.config.js'
 import cors from 'cors'
 import productRouter from './routes/product.route.js'
 import errorHandlerMiddleware from './middlewares/errorHandler.middleware.js'
+import { customCorsMiddleware } from './middlewares/cors.middleware.js'
 
 const PORT = 3000
 const app = express()
+
+app.use(customCorsMiddleware)
 
 //cors es un middleware que habilita las consultas de origen cruzadas
 app.use(cors())
