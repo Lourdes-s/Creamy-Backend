@@ -1,5 +1,3 @@
-import ENVIROMENT from "../config/eviroment.js";
-
 const allowed_origins = [
     'http://localhost:5173'
 ];
