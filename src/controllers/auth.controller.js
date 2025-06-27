@@ -111,7 +111,15 @@ export const registerController = async (req, res) => {
             .build()
             return res.status(400).json(response)
         }
-        console.error(error)
+        const response = new ResponseBuilder()
+            .setOk(false)
+            .setStatus(500)
+            .setMessage('Server error')
+            .setData({
+                detail: 'Ocurrio un error en el servidor al registrar el usuario'
+            })
+            .build()
+            return res.status(400).json(response)
     }
 }
 
