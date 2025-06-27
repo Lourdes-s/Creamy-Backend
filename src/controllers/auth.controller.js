@@ -71,7 +71,7 @@ export const registerController = async (req, res) => {
             }
         )
 
-        const redirectUrl = `${ENVIROMENT.URL_FRONTEND}/api/auth/verify-email/` + validationToken
+        const redirectUrl = `${ENVIROMENT.URL_FRONTEND}/verify-email/` + validationToken
 
         await transporterEmail.sendMail({
             subject: 'Validacion de email',
@@ -131,16 +131,11 @@ export const verifyEmailController = async (req, res ) => {
         const user_to_verify = await User.findOne({ email: email_to_verify})
         user_to_verify.emailVerified = true
         await user_to_verify.save()
-        const response = new ResponseBuilder()
-        .setCode('SUCCESS')
-        .setOk(true)
-        .setStatus(200)
-        .setMessage('Usuario verificado')
-        .setData({
-            detail: 'El usuario ha sido verificado exitosamente'
+        res.json({
+            ok: true,
+            status: 200,
+            message: 'Email verificado'
         })
-        .build()
-        return res.redirect('http://localhost:5173/login')
     }
     catch(error){
         const response = new ResponseBuilder()
