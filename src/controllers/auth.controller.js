@@ -9,6 +9,8 @@ import jwt from "jsonwebtoken"
 
 export const registerController = async (req, res) => {
     try{
+
+        console.log("Datos recibidos en el register:", req.body)
         const { name, password, email } = req.body
         const registerConfig = {
             name: {
