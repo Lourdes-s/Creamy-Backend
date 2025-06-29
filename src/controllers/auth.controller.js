@@ -1,6 +1,5 @@
 import ENVIROMENT from "../config/enviroment.js"
 import ResponseBuilder from "../helpers/builders/response.builder.js"
-import transporterEmail from "../helpers/emailTransporter.helpers.js"
 import { verifyEmail, verifyMinLength, verifyString } from "../helpers/validations.helpers.js"
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt"
@@ -251,15 +250,7 @@ export const forgotPasswordController = async (req, res) => {
             }
         )
 
-        const resetUrl = `${ENVIROMENT.URL_FRONTEND}/auth/recovery-password/${reset_token}`
-
-        await transporterEmail.sendMail({
-            subject: 'Restablecer contraseña',
-            to: email,
-            html: `
-                <h1>Para poder restablecer tu contraseña ha click <a href='${resetUrl}'> aqui </a></h1>
-            `
-        })
+        await sendRecoveryMail(reset_token, email)
 
         const response = new ResponseBuilder()
         .setOk(true)
