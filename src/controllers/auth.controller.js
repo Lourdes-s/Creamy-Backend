@@ -89,7 +89,7 @@ export const registerController = async (req, res) => {
             ENVIROMENT.SECRET_KEY,
             {expiresIn: '1d',}
         )
-        const result = await sendResgisterMail(validationToken, email)
+        const result = await sendRegisterMail(validationToken, email)
 
         const hashedPassword = await bcrypt.hash(password, 10)
 
