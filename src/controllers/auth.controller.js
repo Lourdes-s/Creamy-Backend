@@ -1,11 +1,12 @@
 import ENVIROMENT from "../config/enviroment.js"
 import ResponseBuilder from "../helpers/builders/response.builder.js"
-import { verifyEmail, verifyMinLength, verifyString } from "../helpers/validations.helpers.js"
+import { verifyEmail, verifyMinLength, verifyString, verifyValidator } from "../helpers/validations.helpers.js"
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt"
 import nodemailer from "nodemailer"
 import jwt from "jsonwebtoken"
 import { sendRegisterMail, sendRecoveryMail } from "../helpers/emailTransporter.helpers.js"
+import AppError from "../helpers/errors/app.error.js"
 
 const validateRegister = (name, password, email) => {
     const validator = {
@@ -73,7 +74,7 @@ const validateRecovery = (password, reset_token) => {
     return verifyValidator(validator)
 }
 
-export const registerController = async (req, res) => {
+export const registerController = async (req, res, next) => {
     try{
         const { name, password, email } = req.body
 
