@@ -5,7 +5,6 @@ dotenv.config()
 //process es una variable global que guarda datos del proceso de ejecucion de node 
 //configuramos en process.env las variables de entorno del archivo .env 
 
-
 const ENVIROMENT = { 
     EMAIL_PASSWORD: process.env.EMAIL_PASSWORD || '',
     EMAIL_USER: process.env.EMAIL_USER || '',

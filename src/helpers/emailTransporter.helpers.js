@@ -13,7 +13,7 @@ const transporterEmail = nodemailer.createTransport({
 })
 
 export const sendRegisterMail = async (validationToken, email) => {
-    const redirectUrl = `${ENVIROMENT.URL_FRONTEND}/verify-email/` + validationToken
+    const redirectUrl = `${ENVIROMENT.URL_FRONTEND}/auth/verify-email/${validationToken}` 
     const result = await transporterEmail.sendMail({
         subject: 'Valida tu email',
         to: email,
@@ -26,7 +26,7 @@ export const sendRegisterMail = async (validationToken, email) => {
 }
 
 export const sendRecoveryMail = async (reset_token, email) => {
-    const resetUrl = `${ENVIROMENT.URL_FRONTEND}/recovery-password/${reset_token}`
+    const resetUrl = `${ENVIROMENT.URL_FRONTEND}/auth/recovery-password/${reset_token}`
     const result = await transporterEmail.sendMail({
         subject: 'Restablecer contraseña',
         to: email,

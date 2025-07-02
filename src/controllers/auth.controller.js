@@ -111,7 +111,7 @@ export const registerController = async (req, res, next) => {
     }
 }
 
-export const verifyEmailController = async (req, res ) => {
+export const verifyEmailController = async (req, res, next) => {
     try{
         const {validation_token} = req.params
         const payload = jwt.verify(validation_token, ENVIROMENT.SECRET_KEY)
@@ -119,25 +119,15 @@ export const verifyEmailController = async (req, res ) => {
         const user_to_verify = await User.findOne({ email: email_to_verify})
         user_to_verify.emailVerified = true
         await user_to_verify.save()
-        res.json({
+        return res.status(200).json({
             ok: true,
-            status: 200,
-            message: 'Email verificado'
+            message: 'El correo electronico ha sido enviado'
         })
     }
     catch(error){
-        const response = new ResponseBuilder()
-        .setOk(false)
-        .setStatus(500)
-        .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-        .setData({
-            detail: error.message
-        })
-        .build()
-        return res.status(500).json(response)
+        next(error)
     }
 }
-
 export const loginController = async (req, res) => {
     try{
         const { email, password } = req.body
