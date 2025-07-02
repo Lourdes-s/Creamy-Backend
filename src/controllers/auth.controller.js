@@ -1,7 +1,7 @@
 import ENVIROMENT from "../config/enviroment.js"
 import { verifyEmail, verifyMinLength, verifyString, verifyValidator } from "../helpers/validations.helpers.js"
 import AppError from "../helpers/errors/app.error.js"
-import { createUserToken, createUserPublic } from '../helpers/users/user.helpers.js'
+import { createUserToken} from '../helpers/users/user.helpers.js'
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
