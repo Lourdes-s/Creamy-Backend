@@ -1,12 +1,13 @@
 import ENVIROMENT from "../config/enviroment.js"
 import ResponseBuilder from "../helpers/builders/response.builder.js"
 import { verifyEmail, verifyMinLength, verifyString, verifyValidator } from "../helpers/validations.helpers.js"
+import AppError from "../helpers/errors/app.error.js"
+import { createUserToken, createUserPublic } from '../helpers/users/user.helpers.js'
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt"
-import nodemailer from "nodemailer"
 import jwt from "jsonwebtoken"
 import { sendRegisterMail, sendRecoveryMail } from "../helpers/emailTransporter.helpers.js"
-import AppError from "../helpers/errors/app.error.js"
+
 
 const validateRegister = (name, password, email) => {
     const validator = {
@@ -35,19 +36,19 @@ const validateRegister = (name, password, email) => {
     return verifyValidator(validator)
 }
 
-const validateLogin = (password, email) => {
+const validateLogin = (email, password) => {
     const validator = {
+                email: {
+            value: email,
+            validation: [
+                verifyEmail,
+                (field_name, field_value) => verifyMinLength(field_name, field_value, 10)
+            ]
+        },
         password: {
             value: password,
             validation: [
                 verifyString,
-                (field_name, field_value) => verifyMinLength(field_name, field_value, 10)
-            ]
-        },
-        email: {
-            value: email,
-            validation: [
-                verifyEmail,
                 (field_name, field_value) => verifyMinLength(field_name, field_value, 10)
             ]
         }
@@ -75,7 +76,7 @@ const validateRecovery = (password, reset_token) => {
 }
 
 export const registerController = async (req, res, next) => {
-    try{
+    try {
         const { name, password, email } = req.body
 
         const errors = validateRegister(name, password, email)
@@ -92,7 +93,7 @@ export const registerController = async (req, res, next) => {
         const hashedPassword = await bcrypt.hash(password, 10)
 
         const userCreated = new User({
-            name: name, 
+            name: name,
             email: email,
             password: hashedPassword,
             verificationToken: ''
@@ -100,141 +101,101 @@ export const registerController = async (req, res, next) => {
         await userCreated.save() //esto lo guarda en mongoDB
 
         const validationToken = jwt.sign(
-            {email: email},
+            { email: email },
             ENVIROMENT.SECRET_KEY,
-            {expiresIn: '1d',}
+            { expiresIn: '1d', }
         )
 
-    await sendRegisterMail(validationToken, email)
+        await sendRegisterMail(validationToken, email)
 
         return res.status(201).json({
             ok: true,
             message: 'Usuario registrado correctamente. Verifica tu correo electrónico.'
         })
     }
-    catch(error){
+    catch (error) {
         next(error)
     }
 }
 
 export const verifyEmailController = async (req, res, next) => {
-    try{
-        const {validation_token} = req.params
+    try {
+        const { validation_token } = req.params
         const payload = jwt.verify(validation_token, ENVIROMENT.SECRET_KEY)
         const email_to_verify = payload.email
-        const user_to_verify = await User.findOne({ email: email_to_verify})
+        const user_to_verify = await User.findOne({ email: email_to_verify })
+        if (!user_to_verify) {
+            return next(new AppError('Usuario no encontrado para verificar email', 404))
+        }
         user_to_verify.emailVerified = true
         await user_to_verify.save()
         return res.status(200).json({
             ok: true,
-            message: 'El correo electronico ha sido enviado'
+            message: 'Correo electrónico verificado correctamente'
         })
     }
-    catch(error){
+    catch (error) {
         next(error)
     }
 }
-export const loginController = async (req, res) => {
-    try{
+export const loginController = async (req, res, next) => {
+    try {
         const { email, password } = req.body
-        //TODO: Validar que el email y password no esten vacios
-        
-        const user = await User.findOne({email: email})
-        if(!user){
-            const response = new ResponseBuilder()
-            .setOk(false)
-            .setCode(404)
-            .setMessage('Usuario no encontrado')
-            .setData({
-                detail: 'El usuario no existe'
-            })
-            .build()
-            return res.status(404).json(response)
+
+        const errors = validateLogin(email, password)
+        if (errors) {
+            return next(new AppError(errors, 400))
+        }
+
+        const user = await User.findOne({ email: email })
+        if (!user) {
+            next(new AppError('Usuario no encontrado', 404))
+            return
         }
 
         const isCorrectPassword = await bcrypt.compare(password, user.password)
-        if(!isCorrectPassword){
-            const response = new ResponseBuilder()
-            .setOk(false)
-            .setCode(401)
-            .setMessage('Credenciales invalidas')
-            .setData({
-                detail: 'La contraseña es incorrecta'
-            })
-            .build()
-            return res.status(401).json(response)
-        }
-        if(!user.emailVerified){
-            const response = new ResponseBuilder()
-            .setOk(false)
-            .setCode(403)
-            .setMessage('Cuenta no verificada')
-            .setData({
-                detail: 'La cuenta no ha sido verificada'
-            })
-            .build()
-            return res.status(403).json(response)
+        if (!isCorrectPassword) {
+            next(new AppError('Contraseña incorrecta', 401))
+            return
         }
 
-        const access_token = jwt.sign(
-            {
-                id: user._id,
-                name: user.name,
-                email: user.email,
-                role: user.role
-            }, 
-            ENVIROMENT.SECRET_KEY, 
-            {
-                expiresIn: '1d' // esto determina cuanto dura la session
-            }
-        )
+        if (!user.emailVerified) {
+            next(new AppError('El correo electronico no ha sido verificado', 403))
+            return
+        }
 
-        const response = new ResponseBuilder()
-        .setCode('LOGGED_SUCCESS')
-        .setOk(true)
-        .setCode(200)
-        .setMessage('Inicio de sesión exitoso')
-        .setData({
-            access_token: access_token,
-            user_info: {
-                user_id: user._id,
-                name: user.name,
-                email: user.email
-            }
+        const userPublic = createUserToken(user)
+        const access_token = jwt.sign(userPublic, ENVIROMENT.SECRET_KEY, { expiresIn: '1d' })
+
+        return res.status(200).json({
+            ok: true,
+            access_token,
+            user: userPublic
         })
-        .build()
-        return res.status(200).json(response)
+
     }
-    catch(error){
-        const response = new ResponseBuilder()
-        .setOk(false)
-        .setStatus(500)
-        .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-        .setData({
-            detail: error.message
-        })
-        .build()
-        return res.status(500).json(response)
+    catch (error) {
+        next(error)
     }
 }
 
 export const forgotPasswordController = async (req, res) => {
     try {
-        const { email } = req.body  
+        const { email } = req.body
         console.log(req.body)
-        const user = await User.findOne({email: email})
+        const user = await User.findOne({ email: email })
         if (!user) {
             const response = new ResponseBuilder()
-            .setOk(false)
-            .setStatus(404)
-            .setCode('USER_NOT_FIND')
-            .setMessage('No existe un usuario con el correo electrónico proporcionado')
-            .setData(
-                {
-                    detail: 'No existe un usuario con el correo electrónico proporcionado'
-                }
-            )
-            .build()
+                .setOk(false)
+                .setStatus(404)
+                .setCode('USER_NOT_FIND')
+                .setMessage('No existe un usuario con el correo electrónico proporcionado')
+                .setData(
+                    {
+                        detail: 'No existe un usuario con el correo electrónico proporcionado'
+                    }
+                )
+                .build()
             return res.status(404).json(response)
         }
         const reset_token = jwt.sign(
@@ -250,62 +211,62 @@ export const forgotPasswordController = async (req, res) => {
         await sendRecoveryMail(reset_token, email)
 
         const response = new ResponseBuilder()
-        .setOk(true)
-        .setCode('SUCCESS')
-        .setMessage('Se ha enviado un correo electrónico para restablecer la contraseña')
-        .setData(
-            {
-                detail: 'Se ha enviado un correo electrónico para restablecer la contraseña'
+            .setOk(true)
+            .setCode('SUCCESS')
+            .setMessage('Se ha enviado un correo electrónico para restablecer la contraseña')
+            .setData(
+                {
+                    detail: 'Se ha enviado un correo electrónico para restablecer la contraseña'
                 }
             )
-        .build()
+            .build()
         return res.status(200).json(response)
     }
-    catch (error){
+    catch (error) {
         const response = new ResponseBuilder()
-        .setOk(false)
-        .setStatus(500)
-        .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-        .setData({
-            detail: error.message
-        })
-        .build()
+            .setOk(false)
+            .setStatus(500)
+            .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
+            .setData({
+                detail: error.message
+            })
+            .build()
         return res.status(500).json(response)
     }
 }
 
 export const recoveryPasswordController = async (req, res) => {
     try {
-        const {reset_token} = req.params
+        const { reset_token } = req.params
         const newPassword = req.body.password
-        const {email} = jwt.verify(reset_token, ENVIROMENT.SECRET_KEY)
-        const user_to_modify = await User.findOne({ email: email})
+        const { email } = jwt.verify(reset_token, ENVIROMENT.SECRET_KEY)
+        const user_to_modify = await User.findOne({ email: email })
         if (!user_to_modify) {
             const response = new ResponseBuilder()
-            .setOk(false)
-            .setStatus(404)
-            .setMessage('El usuario no existe')
-            .setData({
-                detail: 'El usuario no existe'
+                .setOk(false)
+                .setStatus(404)
+                .setMessage('El usuario no existe')
+                .setData({
+                    detail: 'El usuario no existe'
                 })
-            .build()
+                .build()
             return res.status(404).json(response)
         }
-        if (!newPassword){
+        if (!newPassword) {
             const response = new ResponseBuilder()
-            .setOk(false)
-            .setStatus(400)
-            .setMessage('El campo password es requerido')
-            .setData({
-                detail: 'El campo password es requerido'
+                .setOk(false)
+                .setStatus(400)
+                .setMessage('El campo password es requerido')
+                .setData({
+                    detail: 'El campo password es requerido'
                 })
-            .build()
+                .build()
             return res.status(400).json(response)
         }
         const newHashedPassword = await bcrypt.hash(newPassword, 10)
         user_to_modify.password = newHashedPassword
-            await user_to_modify.save()
-            const response = new ResponseBuilder()
+        await user_to_modify.save()
+        const response = new ResponseBuilder()
             .setCode('SUCCESS')
             .setOk(true)
             .setStatus(200)
@@ -314,17 +275,17 @@ export const recoveryPasswordController = async (req, res) => {
                 detail: 'La contraseña ha sido modificada exitosamente'
             })
             .build()
-            return res.status(200).json(response)
+        return res.status(200).json(response)
     }
-    catch(err){
+    catch (err) {
         const response = new ResponseBuilder()
-        .setOk(false)
-        .setStatus(500)
-        .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-        .setData({
-            detail: err.message
-        })
-        .build()
+            .setOk(false)
+            .setStatus(500)
+            .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
+            .setData({
+                detail: err.message
+            })
+            .build()
         return res.status(500).json(response)
     }
 }
