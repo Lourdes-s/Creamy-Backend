@@ -1,5 +1,4 @@
 import ENVIROMENT from "../config/enviroment.js"
-import ResponseBuilder from "../helpers/builders/response.builder.js"
 import { verifyEmail, verifyMinLength, verifyString, verifyValidator } from "../helpers/validations.helpers.js"
 import AppError from "../helpers/errors/app.error.js"
 import { createUserToken, createUserPublic } from '../helpers/users/user.helpers.js'
@@ -179,25 +178,16 @@ export const loginController = async (req, res, next) => {
     }
 }
 
-export const forgotPasswordController = async (req, res) => {
+export const forgotPasswordController = async (req, res, next) => {
     try {
         const { email } = req.body
-        console.log(req.body)
         const user = await User.findOne({ email: email })
+
         if (!user) {
-            const response = new ResponseBuilder()
-                .setOk(false)
-                .setStatus(404)
-                .setCode('USER_NOT_FIND')
-                .setMessage('No existe un usuario con el correo electrónico proporcionado')
-                .setData(
-                    {
-                        detail: 'No existe un usuario con el correo electrónico proporcionado'
-                    }
-                )
-                .build()
-            return res.status(404).json(response)
+            next(new AppError('El usuario no existe', 404))
+            return 
         }
+
         const reset_token = jwt.sign(
             {
                 email: email
@@ -210,82 +200,45 @@ export const forgotPasswordController = async (req, res) => {
 
         await sendRecoveryMail(reset_token, email)
 
-        const response = new ResponseBuilder()
-            .setOk(true)
-            .setCode('SUCCESS')
-            .setMessage('Se ha enviado un correo electrónico para restablecer la contraseña')
-            .setData(
-                {
-                    detail: 'Se ha enviado un correo electrónico para restablecer la contraseña'
-                }
-            )
-            .build()
-        return res.status(200).json(response)
+
+        return res.status(200).json({
+            ok: true,
+            message: 'Correo de restablecimiento de contraseña enviado'
+        })
     }
     catch (error) {
-        const response = new ResponseBuilder()
-            .setOk(false)
-            .setStatus(500)
-            .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-            .setData({
-                detail: error.message
-            })
-            .build()
-        return res.status(500).json(response)
+        next(error)
     }
 }
 
-export const recoveryPasswordController = async (req, res) => {
+export const recoveryPasswordController = async (req, res, next) => {
     try {
-        const { reset_token } = req.params
-        const newPassword = req.body.password
+        const { password, reset_token } = req.body
+        const errors = validateRecovery(password, reset_token)
+
+        if (errors) {
+            return next(new AppError(errors, 400))
+        }
+
         const { email } = jwt.verify(reset_token, ENVIROMENT.SECRET_KEY)
         const user_to_modify = await User.findOne({ email: email })
+
         if (!user_to_modify) {
-            const response = new ResponseBuilder()
-                .setOk(false)
-                .setStatus(404)
-                .setMessage('El usuario no existe')
-                .setData({
-                    detail: 'El usuario no existe'
-                })
-                .build()
-            return res.status(404).json(response)
+            next(new AppError('El usuario no existe', 404))
+            return 
         }
-        if (!newPassword) {
-            const response = new ResponseBuilder()
-                .setOk(false)
-                .setStatus(400)
-                .setMessage('El campo password es requerido')
-                .setData({
-                    detail: 'El campo password es requerido'
-                })
-                .build()
-            return res.status(400).json(response)
-        }
-        const newHashedPassword = await bcrypt.hash(newPassword, 10)
+
+
+        const newHashedPassword = await bcrypt.hash(password, 10)
         user_to_modify.password = newHashedPassword
+
         await user_to_modify.save()
-        const response = new ResponseBuilder()
-            .setCode('SUCCESS')
-            .setOk(true)
-            .setStatus(200)
-            .setMessage('contraseña modificada')
-            .setData({
-                detail: 'La contraseña ha sido modificada exitosamente'
-            })
-            .build()
-        return res.status(200).json(response)
+        res.status(200).json({
+            ok: true,
+            message: 'Contraseña restablecida correctamente'
+        })
     }
-    catch (err) {
-        const response = new ResponseBuilder()
-            .setOk(false)
-            .setStatus(500)
-            .setMessage('Ha ocurrido un error excepcional. Por favor intente mas tarde')
-            .setData({
-                detail: err.message
-            })
-            .build()
-        return res.status(500).json(response)
+    catch (error) {
+        next(error)
     }
 }
