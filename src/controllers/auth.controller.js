@@ -84,12 +84,10 @@ export const registerController = async (req, res, next) => {
             return
         }
 
-        const validationToken = jwt.sign(
-            {email: email},
-            ENVIROMENT.SECRET_KEY,
-            {expiresIn: '1d',}
-        )
-        const result = await sendRegisterMail(validationToken, email)
+        const existingUser = await User.findOne({ email: email })
+        if (existingUser) {
+            return next(new AppError('El email ya está registrado', 400))
+        }
 
         const hashedPassword = await bcrypt.hash(password, 10)
 
@@ -100,8 +98,16 @@ export const registerController = async (req, res, next) => {
             verificationToken: ''
         })
         await userCreated.save() //esto lo guarda en mongoDB
-    
-        return res.status(200).json({
+
+        const validationToken = jwt.sign(
+            {email: email},
+            ENVIROMENT.SECRET_KEY,
+            {expiresIn: '1d',}
+        )
+
+    await sendRegisterMail(validationToken, email)
+
+        return res.status(201).json({
             ok: true,
             message: 'Usuario registrado correctamente. Verifica tu correo electrónico.'
         })
