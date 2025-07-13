@@ -74,6 +74,32 @@ const validateRecovery = (password, reset_token) => {
     return verifyValidator(validator)
 }
 
+const validateContact = (name, email, message) => {
+    const validator = {
+        name: {
+            value: name,
+            validation: [
+                verifyString,
+                (field_name, field_value) => verifyMinLength(field_name, field_value, 5)
+            ]
+        },
+        email: {
+            value: email,
+            validation: [
+                verifyEmail
+            ]
+        },
+        message: {
+            value: message,
+            validation: [
+                verifyString,
+                (field_name, field_value) => verifyMinLength(field_name, field_value, 10)
+            ]
+        }
+    }
+    return verifyValidator(validator)
+}
+
 export const registerController = async (req, res, next) => {
     try {
         const { name, password, email } = req.body
@@ -243,9 +269,14 @@ export const recoveryPasswordController = async (req, res, next) => {
     }
 }
 
-export const contactMailController = async (req, res) => {
+export const contactMailController = async (req, res, next) => {
     try {
         const { name, email, message } = req.body
+        const errors = validateContact(name, email, message)
+
+        if (errors) {
+            return next(new AppError(errors, 400))
+        }
 
         if (!name || !email || !message) {
             return res.status(400).json({
@@ -255,13 +286,11 @@ export const contactMailController = async (req, res) => {
 
         await sendContactMail(name, email, message)
 
-        return res.status(200).json({
+        res.status(200).json({
             message: 'Mensaje enviado correctamente. Gracias por contactarnos.'
         })
-    } catch (error) {
-        console.error('Error al enviar el mensaje de contacto:', error)
-        return res.status(500).json({
-            message: 'Ocurrió un error al intentar enviar tu mensaje.'
-        })
+    } 
+    catch (error) {
+        next(error)
     }
 }
