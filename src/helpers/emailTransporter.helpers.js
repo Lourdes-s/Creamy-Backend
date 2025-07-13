@@ -36,3 +36,18 @@ export const sendRecoveryMail = async (reset_token, email) => {
     })
     return result
 }
+export const sendContactMail = async (name, email, message) => {
+    const result = await transporterEmail.sendMail({
+        from: `"Contacto Creamy" <${ENVIROMENT.EMAIL_USER}>`,
+        to: ENVIROMENT.EMAIL_USER, // llega a lourdes.tests@gmail.com
+        subject: 'Nuevo mensaje de contacto desde Creamy 💌',
+        html: `
+            <h2>Nuevo mensaje desde Creamy</h2>
+            <p><strong>Nombre:</strong> ${name}</p>
+            <p><strong>Email:</strong> ${email}</p>
+            <p><strong>Mensaje:</strong></p>
+            <p>${message}</p>
+        `
+    })
+    return result
+}

@@ -1,11 +1,11 @@
 import ENVIROMENT from "../config/enviroment.js"
 import { verifyEmail, verifyMinLength, verifyString, verifyValidator } from "../helpers/validations.helpers.js"
 import AppError from "../helpers/errors/app.error.js"
-import { createUserToken} from '../helpers/users/user.helpers.js'
+import { createUserToken } from '../helpers/users/user.helpers.js'
 import User from "../models/user.model.js"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
-import { sendRegisterMail, sendRecoveryMail } from "../helpers/emailTransporter.helpers.js"
+import { sendRegisterMail, sendRecoveryMail, sendContactMail } from "../helpers/emailTransporter.helpers.js"
 
 
 const validateRegister = (name, password, email) => {
@@ -37,7 +37,7 @@ const validateRegister = (name, password, email) => {
 
 const validateLogin = (email, password) => {
     const validator = {
-                email: {
+        email: {
             value: email,
             validation: [
                 verifyEmail,
@@ -185,7 +185,7 @@ export const forgotPasswordController = async (req, res, next) => {
 
         if (!user) {
             next(new AppError('El usuario no existe', 404))
-            return 
+            return
         }
 
         const reset_token = jwt.sign(
@@ -225,7 +225,7 @@ export const recoveryPasswordController = async (req, res, next) => {
 
         if (!user_to_modify) {
             next(new AppError('El usuario no existe', 404))
-            return 
+            return
         }
 
 
@@ -240,5 +240,28 @@ export const recoveryPasswordController = async (req, res, next) => {
     }
     catch (error) {
         next(error)
+    }
+}
+
+export const contactMailController = async (req, res) => {
+    try {
+        const { name, email, message } = req.body
+
+        if (!name || !email || !message) {
+            return res.status(400).json({
+                message: 'Todos los campos son obligatorios.'
+            })
+        }
+
+        await sendContactMail(name, email, message)
+
+        return res.status(200).json({
+            message: 'Mensaje enviado correctamente. Gracias por contactarnos.'
+        })
+    } catch (error) {
+        console.error('Error al enviar el mensaje de contacto:', error)
+        return res.status(500).json({
+            message: 'Ocurrió un error al intentar enviar tu mensaje.'
+        })
     }
 }
