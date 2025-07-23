@@ -78,21 +78,16 @@ export const getProductByIdController = async (req, res, next) => {
     }
 }
 
-export const getAllProductsController = async (req, res) => {
+export const getAllProductsController = async (req, res, next) => {
     try {
         const products = await ProductRepository.getAllProducts()
-        res.status(200).json({
+        return res.status(200).json({
             ok: true,
             payload: {
                 products}
             })
     }
     catch (error) {
-        console.error(error)
-        res.status(500).json({
-            ok: false,
-            message: 'Error al obtener los productos',
-            error: 'Error al obtener los productos'
-        })
+        next(error)
     }
 }

@@ -21,11 +21,22 @@ const userSchema = new mongoose.Schema({
     verificationToken: {
         type: String
     },
+    cart: [
+        {
+            product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
+            quantity: {
+                type: Number,
+                required: true,
+                min: [1, 'La cantidad mínima es 1'],
+                default: 1
+            }
+        }
+    ],
     fecha_creacion: {
         type: Date,
         default: Date.now
     },
-    role:{
+    role: {
         type: String,
         default: 'user',
         required: true
