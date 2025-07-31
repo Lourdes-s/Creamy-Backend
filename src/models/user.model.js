@@ -28,7 +28,11 @@ const userSchema = new mongoose.Schema({
                 type: Number,
                 required: true,
                 min: [1, 'La cantidad mínima es 1'],
-                default: 1
+                default: 1,
+                validate: {
+                    validator: Number.isInteger,
+                    message: 'La cantidad debe ser un entero'
+                }
             }
         }
     ],

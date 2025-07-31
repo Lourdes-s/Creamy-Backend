@@ -90,15 +90,16 @@ export const getCartController = async (req, res, next) => {
 
 export const clearCartController = async (req, res, next) => {
     try {
-        const user = await User.findById(req.user._id)
+        const userId = req.user.id
+        const user = await User.findByIdAndUpdate(
+            { _id: userId },
+            { $set: { cart: [] } },
+            { new: true, useFindAndModify: false  }
+        ).populate('cart.product')
         if (!user) {
             return next(new AppError('Usuario no encontrado', 404))
         }
-        user.cart = [] 
-        await user.save() 
-        const updatedUser = await User.findById(user._id).populate('cart.product')
-        console.log('Carrito después de vaciar (revisado):', updatedUser.cart)
-        return res.status(200).json({ ok: true, payload: { cart: updatedUser.cart } })
+        return res.status(200).json({ ok: true, payload: { cart:[] } })
     } catch (error) {
         next(error)
     }
